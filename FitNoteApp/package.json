@@ -3,10 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
-    "ios": "react-native run-ios",
+    "start": "npx @react-native-community/cli start",
+    "android": "npx @react-native-community/cli run-android",
+    "dev:android": "emulator -avd Pixel_6_API_35 -netdelay none -netspeed full & sleep 10 && npx @react-native-community/cli run-android",
+    "ios": "npx @react-native-community/cli run-ios",
     "lint": "eslint .",
-    "start": "react-native start",
     "test": "jest"
   },
   "dependencies": {
