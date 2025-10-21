@@ -5,8 +5,17 @@
 
 package com.fitnote.server.domain.auth.dto;
 
-public record JwtResponse(String accessToken, long expiresInSeconds, String tokenType) {
-    public JwtResponse(String accessToken, long expiresInSeconds) {
-        this(accessToken, expiresInSeconds, "Bearer");
+public record JwtResponse(
+        String accessToken,
+        long accessTokenExpiresInSeconds,
+        String refreshToken,
+        long refreshTokenExpiresInSeconds,
+        String tokenType) {
+    public JwtResponse(
+            String accessToken,
+            long accessTokenExpiresInSeconds,
+            String refreshToken,
+            long refreshTokenExpiresInSeconds) {
+        this(accessToken, accessTokenExpiresInSeconds, refreshToken, refreshTokenExpiresInSeconds, "Bearer");
     }
 }
