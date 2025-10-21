@@ -27,3 +27,9 @@ spring.datasource.hikari.minimum-idle=5
 spring.datasource.hikari.idle-timeout=600000
 spring.datasource.hikari.connection-timeout=30000
 spring.datasource.hikari.max-lifetime=1800000
+
+### JWT
+# 32바이트 이상 길이의 시크릿 키를 설정하세요.
+jwt.secret=ChangeMeToASecretKeyChangeMeToASecretKey
+# 기본 1시간 (3600000ms)
+jwt.access-token-validity-ms=3600000
