@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.fitnote.server.domain.auth.dto.JwtResponse;
 import com.fitnote.server.domain.auth.dto.LoginRequest;
+import com.fitnote.server.domain.auth.dto.RefreshTokenRequest;
 import com.fitnote.server.domain.auth.dto.RegisterRequest;
 import com.fitnote.server.domain.auth.service.AuthService;
 
@@ -35,4 +36,11 @@ public class AuthController {
         JwtResponse response = authService.login(request);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<JwtResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        JwtResponse response = authService.refreshAccessToken(request.refreshToken());
+        return ResponseEntity.ok(response);
+    }
+    
 }

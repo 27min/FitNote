@@ -33,3 +33,5 @@ spring.datasource.hikari.max-lifetime=1800000
 jwt.secret=ChangeMeToASecretKeyChangeMeToASecretKey
 # 기본 1시간 (3600000ms)
 jwt.access-token-validity-ms=3600000
+# 기본 14일 (1209600000ms)
+jwt.refresh-token-validity-ms=1209600000

@@ -72,10 +72,41 @@ public class AuthService {
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        String token = jwtTokenProvider.generateAccessToken(principal);
+        String accessToken = jwtTokenProvider.generateAccessToken(principal);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(principal);
 
-        long expiresInSeconds =
+        long accessExpiresInSeconds = 
                 Duration.ofMillis(jwtTokenProvider.getAccessTokenValidityMs()).toSeconds();
-        return new JwtResponse(token, expiresInSeconds);
+        long refreshExpiresInSeconds = 
+                Duration.ofMillis(jwtTokenProvider.getRefreshTokenValidityMs()).toSeconds();
+
+        return new JwtResponse(accessToken, accessExpiresInSeconds, refreshToken, refreshExpiresInSeconds);
     }
+
+    @Transactional(readOnly = true)
+    public JwtResponse refreshAccessToken(String refreshToken) {
+        boolean isValid = jwtTokenProvider.validateToken(refreshToken);
+        if (!isValid) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다.");
+        }
+        String email = jwtTokenProvider.getUsername(refreshToken);
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자를 찾을 수 없습니다."));
+        
+        UserPrincipal principal = UserPrincipal.from(user);
+        String newAccessToken = jwtTokenProvider.generateAccessToken(principal);
+        String newRefreshToken = jwtTokenProvider.generateRefreshToken(principal);
+
+        long accessExpiresInSeconds =
+                Duration.ofMillis(jwtTokenProvider.getAccessTokenValidityMs()).toSeconds();
+        long refreshExpiresInSeconds =
+                Duration.ofMillis(jwtTokenProvider.getRefreshTokenValidityMs()).toSeconds();
+
+        return new JwtResponse(
+                newAccessToken,
+                accessExpiresInSeconds,
+                newRefreshToken,
+                refreshExpiresInSeconds);
+    }
+
 }
