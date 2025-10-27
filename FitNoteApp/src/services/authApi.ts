@@ -1,6 +1,6 @@
 import { apiClient } from "../utils/api";
 
-export type UnitSystem = 'KG' | 'LBS';
+export type UnitSystem = 'KG' | 'LB';
 
 export interface RegisterPayload {
   email: string;
@@ -28,7 +28,7 @@ export interface TokenResponse {
 }
 
 export async function register(payload: RegisterPayload) {
-  await apiClient.post('/auth/register', payload);
+  await apiClient.post('/api/auth/register', payload);
 }
 
 export async function login(payload: LoginPayload): Promise<TokenResponse> {

@@ -20,7 +20,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
 const unitSystemOptions: Array<{ label: string; value: UnitSystem }> = [
   { label: '킬로그램 (KG)', value: 'KG' },
-  { label: '파운드 (LBS)', value: 'LBS' },
+  { label: '파운드 (LB)', value: 'LB' },
 ];
 
 export default function RegisterScreen({ navigation }: Props) {
