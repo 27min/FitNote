@@ -1,7 +1,10 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import AuthNavigator from './AuthNavigation';
 import type { RootStackParamList, TabsParamList } from './types';
+import { useAuth } from '../hooks/useAuth';
 
 import HomeScreen from '../screens/HomeScreen';
 import HistoryScreen from '../screens/HistoryScreen';
@@ -23,10 +26,32 @@ function TabsNavigator() {
 }
 
 export default function RootNavigator() {
+  const { status } = useAuth();
+
+  if (status === 'loading') {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+  
   return (
-    <Stack.Navigator>
-      <Stack.Screen name="Tabs" component={TabsNavigator} options={{ headerShown: false }} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {status === 'authenticated' ? (
+        <Stack.Screen name="Tabs" component={TabsNavigator} />
+      ) : (
+        <Stack.Screen name="Auth" component={AuthNavigator} />
+      )}
       {/* 추후 세션 화면 추가 예정 */}
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
