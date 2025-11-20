@@ -18,12 +18,12 @@ import type {
   RegisterPayload,
   TokenResponse,
 } from "../services/authApi";
-import { 
+import {
   clearStoredTokens,
   loadStoredTokens,
   storeTokens,
 } from "../storage/authStorage";
-import { applyAuthToken } from '../utils/api';
+import { applyAuthToken, setTokenRefreshCallback, setLogoutCallback } from '../utils/api';
 import { getEmailFromToken, isTokenExpired } from '../utils/jwt';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
@@ -104,6 +104,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(initialState);
   const isRefreshingRef = useRef(false);
 
+  const logout = useCallback(async () => {
+    await clearStoredTokens();
+    applyAuthToken(null);
+    setState({ ...initialState, status: 'unauthenticated' });
+  }, []);
+
+  const refreshAccessToken = useCallback(async () => {
+    if (isRefreshingRef.current) {
+      throw new Error('이미 토큰을 새로고침 중입니다.');
+    }
+    const { refreshToken } = state;
+    if (!refreshToken) {
+      await logout();
+      throw new Error('새로고침 토큰이 없습니다. 다시 로그인해 주세요.');
+    }
+
+    try {
+      isRefreshingRef.current = true;
+      const refreshed = await refreshAccessTokenRequest(refreshToken);
+      await storeTokens(refreshed);
+      applyAuthToken(refreshed.accessToken, refreshed.tokenType);
+      setState(buildStateFromResponse(refreshed));
+      return refreshed.accessToken;
+    } catch (error) {
+      await logout();
+      throw new Error(extractErrorMessage(error));
+    } finally {
+      isRefreshingRef.current = false;
+    }
+  }, [logout, state]);
+
+  // API 인터셉터에 콜백 설정
+  useEffect(() => {
+    setTokenRefreshCallback(async () => {
+      try {
+        await refreshAccessToken();
+        return true;
+      } catch (error) {
+        console.warn('Token refresh failed in interceptor:', error);
+        return false;
+      }
+    });
+
+    setLogoutCallback(() => {
+      logout();
+    });
+
+    return () => {
+      setTokenRefreshCallback(null);
+      setLogoutCallback(null);
+    };
+  }, [refreshAccessToken, logout]);
+
   useEffect(() => {
     const bootstrap = async () => {
       try {
@@ -181,35 +234,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(extractErrorMessage(error));
     }
   }, []);
-
-  const logout = useCallback(async () => {
-    await clearStoredTokens();
-    applyAuthToken(null);
-    setState({ ...initialState, status: 'unauthenticated' });
-  }, []);
-
-  const refreshAccessToken = useCallback(async () => {
-    if (isRefreshingRef.current) {
-      throw new Error('이미 토큰을 새로고침 중입니다.');
-    }
-    const { refreshToken } = state;
-    if (!refreshToken) {
-      await logout();
-      throw new Error('새로고침 토큰이 없습니다. 다시 로그인해 주세요.');
-    }
-
-    try {
-      isRefreshingRef.current = true;
-      const refreshed = await refreshAccessTokenRequest(refreshToken);
-      await persistAndSetAuthenticated(refreshed);
-      return refreshed.accessToken;
-    } catch (error) {
-      await logout();
-      throw new Error(extractErrorMessage(error));
-    } finally {
-      isRefreshingRef.current = false;
-    }
-  }, [logout, persistAndSetAuthenticated, state]);
 
   const contextValue = useMemo<AuthContextValue>(
     () => ({

@@ -35,3 +35,11 @@ jwt.secret=ChangeMeToASecretKeyChangeMeToASecretKey
 jwt.access-token-validity-ms=3600000
 # 기본 14일 (1209600000ms)
 jwt.refresh-token-validity-ms=1209600000
+
+### Actuator
+# health endpoint만 노출 (프로덕션에서는 보안을 위해 최소한으로 유지)
+management.endpoints.web.exposure.include=health
+# health endpoint 상세 정보 표시 (개발: always, 프로덕션: when-authorized)
+management.endpoint.health.show-details=always
+# actuator base path (기본: /actuator)
+management.endpoints.web.base-path=/actuator
