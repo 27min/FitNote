@@ -52,6 +52,8 @@ dependencies {
 	// Swagger (SpringDoc)
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
 
+	// Spring Boot Actuator (헬스 체크, 메트릭 등)
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
     // 테스트
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
