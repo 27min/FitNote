@@ -1,11 +1,29 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { Platform } from "react-native";
 
-const BASE_URL = Platform.select({
-    ios : 'http://localhost:8080',
-    android : 'http://10.0.2.2:8080',
-    default : 'http://localhost:8080',
-});
+type EnvLike = Record<string, string | undefined>;
+
+const env: EnvLike = (globalThis as { process?: { env?: EnvLike } }).process?.env ?? {};
+
+function resolveBaseUrl() {
+    const envBaseUrl = Platform.select({
+        ios: env.IOS_API_BASE_URL ?? env.API_BASE_URL,
+        android: env.ANDROID_API_BASE_URL ?? env.API_BASE_URL,
+        default: env.API_BASE_URL,
+    });
+
+    if (envBaseUrl && envBaseUrl.trim().length > 0) {
+        return envBaseUrl.replace(/\/$/, '');
+    }
+
+    return Platform.select({
+        ios: 'http://localhost:8080',
+        android: 'http://10.0.2.2:8080',
+        default: 'http://localhost:8080',
+    });
+}
+
+const BASE_URL = resolveBaseUrl();
 
 let currentAccessToken: string | null = null;
 let currentTokenType: string | null = null;

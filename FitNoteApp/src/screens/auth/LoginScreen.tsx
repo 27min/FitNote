@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -23,15 +23,23 @@ export default function LoginScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isEmailValid = useMemo(() => /\S+@\S+\.\S+/.test(email.trim()), [email]);
+  const isPasswordValid = useMemo(() => password.trim().length >= 8, [password]);
+  const isFormValid = isEmailValid && isPasswordValid;
+
   const handleSubmit = async () => {
-    if (!email || !password) {
-      setError('이메일과 비밀번호를 모두 입력해 주세요.');
+    if (!isEmailValid) {
+      setError('올바른 이메일 형식을 입력해 주세요.');
+      return;
+    }
+    if (!isPasswordValid) {
+      setError('비밀번호는 8자 이상 입력해 주세요.');
       return;
     }
     setIsSubmitting(true);
     setError(null);
     try {
-      await login({ email, password });
+      await login({ email: email.trim(), password: password.trim() });
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
     } finally {
@@ -51,29 +59,42 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.label}>이메일</Text>
           <TextInput
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              setError(null);
+            }}
             placeholder="you@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
             style={styles.input}
+            editable={!isSubmitting}
           />
         </View>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>비밀번호</Text>
           <TextInput
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              setError(null);
+            }}
             placeholder="비밀번호"
             secureTextEntry
             autoCapitalize="none"
             style={styles.input}
+            editable={!isSubmitting}
+            onSubmitEditing={handleSubmit}
           />
         </View>
         <Pressable
-          style={({ pressed }) => [styles.submitButton, pressed && styles.submitButtonPressed]}
+          style={({ pressed }) => [
+            styles.submitButton,
+            (!isFormValid || isSubmitting) && styles.submitButtonDisabled,
+            pressed && styles.submitButtonPressed,
+          ]}
           onPress={handleSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !isFormValid}
         >
           {isSubmitting ? (
             <ActivityIndicator color="#ffffff" />
@@ -135,6 +156,9 @@ const styles = StyleSheet.create({
   },
   submitButtonPressed: {
     opacity: 0.85,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
   submitButtonText: {
     color: '#ffffff',
