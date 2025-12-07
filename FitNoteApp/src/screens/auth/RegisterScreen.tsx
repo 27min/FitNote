@@ -35,16 +35,30 @@ export default function RegisterScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isFormValid = useMemo(
-    () =>
-      Boolean(email && password && confirmPassword && displayName) &&
-      password === confirmPassword,
+  const isEmailValid = useMemo(() => /\S+@\S+\.\S+/.test(email.trim()), [email]);
+  const isPasswordValid = useMemo(() => password.trim().length >= 8, [password]);
+  const hasAllFields = useMemo(
+    () => Boolean(email && password && confirmPassword && displayName),
     [confirmPassword, displayName, email, password],
   );
+  const isFormValid =
+    hasAllFields && isEmailValid && isPasswordValid && password === confirmPassword;
 
   const handleSubmit = async () => {
-    if (!isFormValid) {
-      setError('모든 필드를 입력하고 비밀번호 확인을 맞춰 주세요.');
+    if (!hasAllFields) {
+      setError('모든 필드를 입력해 주세요.');
+      return;
+    }
+    if (!isEmailValid) {
+      setError('올바른 이메일 형식을 입력해 주세요.');
+      return;
+    }
+    if (!isPasswordValid) {
+      setError('비밀번호는 8자 이상 입력해 주세요.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
       return;
     }
 
@@ -53,8 +67,8 @@ export default function RegisterScreen({ navigation }: Props) {
 
     try {
       await register({
-        email,
-        password,
+        email: email.trim(),
+        password: password.trim(),
         displayName,
         unitSystem,
         timezone,
@@ -84,43 +98,61 @@ export default function RegisterScreen({ navigation }: Props) {
           <Text style={styles.label}>이메일</Text>
           <TextInput
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              setError(null);
+            }}
             placeholder="you@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
             style={styles.input}
+            editable={!isSubmitting}
           />
         </View>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>닉네임</Text>
           <TextInput
             value={displayName}
-            onChangeText={setDisplayName}
+            onChangeText={(text) => {
+              setDisplayName(text);
+              setError(null);
+            }}
             placeholder="닉네임"
             style={styles.input}
+            editable={!isSubmitting}
           />
         </View>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>비밀번호</Text>
           <TextInput
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              setError(null);
+            }}
             placeholder="8자 이상 비밀번호"
             secureTextEntry
             autoCapitalize="none"
             style={styles.input}
+            editable={!isSubmitting}
+            onSubmitEditing={handleSubmit}
           />
         </View>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>비밀번호 확인</Text>
           <TextInput
             value={confirmPassword}
-            onChangeText={setConfirmPassword}
+            onChangeText={(text) => {
+              setConfirmPassword(text);
+              setError(null);
+            }}
             placeholder="비밀번호 재입력"
             secureTextEntry
             autoCapitalize="none"
             style={styles.input}
+            editable={!isSubmitting}
+            onSubmitEditing={handleSubmit}
           />
         </View>
         <View style={styles.inputGroup}>
@@ -135,6 +167,7 @@ export default function RegisterScreen({ navigation }: Props) {
                   pressed && styles.unitButtonPressed,
                 ]}
                 onPress={() => setUnitSystem(option.value)}
+                disabled={isSubmitting}
               >
                 <Text
                   style={[
@@ -152,16 +185,24 @@ export default function RegisterScreen({ navigation }: Props) {
           <Text style={styles.label}>시간대</Text>
           <TextInput
             value={timezone}
-            onChangeText={setTimezone}
+            onChangeText={(text) => {
+              setTimezone(text);
+              setError(null);
+            }}
             placeholder="Asia/Seoul"
             autoCapitalize="none"
             style={styles.input}
+            editable={!isSubmitting}
           />
         </View>
         <Pressable
-          style={({ pressed }) => [styles.submitButton, pressed && styles.submitButtonPressed]}
+          style={({ pressed }) => [
+            styles.submitButton,
+            (!isFormValid || isSubmitting) && styles.submitButtonDisabled,
+            pressed && styles.submitButtonPressed,
+          ]}
           onPress={handleSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !isFormValid}
         >
           {isSubmitting ? (
             <ActivityIndicator color="#ffffff" />
@@ -248,6 +289,9 @@ const styles = StyleSheet.create({
   },
   submitButtonPressed: {
     opacity: 0.85,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
   submitButtonText: {
     color: '#ffffff',

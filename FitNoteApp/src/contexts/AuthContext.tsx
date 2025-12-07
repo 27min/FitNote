@@ -7,6 +7,7 @@ import React, {
   useState,
 } from 'react';
 import { isAxiosError } from 'axios';
+import { Alert, Platform, ToastAndroid } from 'react-native';
 
 import { 
   login as loginRequest,
@@ -58,11 +59,19 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
 
 function extractErrorMessage(error: unknown): string {
   if (isAxiosError(error)) {
+    const status = error.response?.status;
     const responseData = error.response?.data;
     let message: string | undefined;
-    if (responseData && typeof responseData === 'object' && 'message' in responseData) {
+
+    if (status === 401) {
+      message = '이메일 또는 비밀번호를 다시 확인해 주세요.';
+    } else if (status === 409) {
+      message = '이미 사용 중인 정보입니다. 다른 정보로 시도해 주세요.';
+    }
+
+    if (!message && responseData && typeof responseData === 'object' && 'message' in responseData) {
       message = String((responseData as { message: unknown }).message);
-    } else if (typeof responseData === 'string') {
+    } else if (!message && typeof responseData === 'string') {
       message = responseData;
     }
 
@@ -75,6 +84,20 @@ function extractErrorMessage(error: unknown): string {
     return error.message;
   }
   return '알 수 없는 오류가 발생했습니다.';
+}
+
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+  } else {
+    Alert.alert('', message);
+  }
+}
+
+function showReLoginNotice(message: string) {
+  Alert.alert('로그인이 필요합니다', message, [{ text: '확인' }], {
+    cancelable: true,
+  });
 }
 
 function resolveEmailFromToken(accessToken: string | null): string | null {
@@ -103,12 +126,34 @@ function buildStateFromResponse(response: TokenResponse): AuthState {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(initialState);
   const isRefreshingRef = useRef(false);
+  const sessionExpiredRef = useRef(false);
 
-  const logout = useCallback(async () => {
+  const resetAuthState = useCallback(async () => {
     await clearStoredTokens();
     applyAuthToken(null);
     setState({ ...initialState, status: 'unauthenticated' });
   }, []);
+
+  const logout = useCallback(async () => {
+    await resetAuthState();
+  }, [resetAuthState]);
+
+  const logoutWithSessionNotice = useCallback(
+    async (message: string) => {
+      if (!sessionExpiredRef.current) {
+        showReLoginNotice(message);
+      }
+      sessionExpiredRef.current = true;
+      await resetAuthState();
+    },
+    [resetAuthState],
+  );
+
+  useEffect(() => {
+    if (state.status === 'authenticated') {
+      sessionExpiredRef.current = false;
+    }
+  }, [state.status]);
 
   const refreshAccessToken = useCallback(async () => {
     if (isRefreshingRef.current) {
@@ -116,8 +161,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const { refreshToken } = state;
     if (!refreshToken) {
-      await logout();
-      throw new Error('새로고침 토큰이 없습니다. 다시 로그인해 주세요.');
+      const message = '로그인 정보가 만료되었습니다. 다시 로그인해 주세요.';
+      await logoutWithSessionNotice(message);
+      throw new Error(message);
     }
 
     try {
@@ -128,12 +174,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState(buildStateFromResponse(refreshed));
       return refreshed.accessToken;
     } catch (error) {
-      await logout();
-      throw new Error(extractErrorMessage(error));
+      const message = extractErrorMessage(error) || '로그인 정보가 만료되었습니다. 다시 로그인해 주세요.';
+      await logoutWithSessionNotice(message);
+      throw new Error(message);
     } finally {
       isRefreshingRef.current = false;
     }
-  }, [logout, state]);
+  }, [logoutWithSessionNotice, state]);
 
   // API 인터셉터에 콜백 설정
   useEffect(() => {
@@ -148,14 +195,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     setLogoutCallback(() => {
-      logout();
+      logoutWithSessionNotice('로그인 정보가 만료되었습니다. 다시 로그인해 주세요.');
     });
 
     return () => {
       setTokenRefreshCallback(null);
       setLogoutCallback(null);
     };
-  }, [refreshAccessToken, logout]);
+  }, [logoutWithSessionNotice, refreshAccessToken]);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -170,9 +217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { accessToken, refreshToken, tokenType } = savedTokens;
 
         if (!accessToken || !refreshToken) {
-          await clearStoredTokens();
-          setState((prev) => ({ ...prev, status: 'unauthenticated' }));
-          applyAuthToken(null);
+          await resetAuthState();
           return;
         }
 
@@ -184,9 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setState(buildStateFromResponse(refreshed));
           } catch (error) {
             console.warn('Failed to refresh token on bootstrap', error);
-            await clearStoredTokens();
-            applyAuthToken(null);
-            setState((prev) => ({ ...prev, status: 'unauthenticated' }));
+            await logoutWithSessionNotice('로그인 정보가 만료되었습니다. 다시 로그인해 주세요.');
           }
           return;
         }
@@ -207,7 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     bootstrap();
-  }, []);
+  }, [logoutWithSessionNotice, resetAuthState]);
 
   const persistAndSetAuthenticated = useCallback(async (response: TokenResponse) => {
     await storeTokens(response);
@@ -220,6 +263,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const response = await loginRequest(payload);
         await persistAndSetAuthenticated(response);
+        showToast('로그인에 성공했어요!');
       } catch (error) {
         throw new Error(extractErrorMessage(error));
       }
@@ -230,6 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(async (payload: RegisterPayload) => {
     try {
       await registerRequest(payload);
+      showToast('회원가입이 완료되었습니다. 로그인해 주세요.');
     } catch (error) {
       throw new Error(extractErrorMessage(error));
     }
